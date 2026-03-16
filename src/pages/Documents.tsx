@@ -188,7 +188,7 @@ export default function Documents() {
             processing: { label: 'Processing', color: 'bg-blue-100 text-blue-700' },
             ready: { label: 'Ready', color: 'bg-emerald-100 text-emerald-700' }
         };
-        return statusConfig[status];
+        return statusConfig[status] || { label: status || 'Unknown', color: 'bg-gray-100 text-gray-700' };
     };
 
     const formatFileSize = (bytes?: number) => {
@@ -199,15 +199,17 @@ export default function Documents() {
         return `${kb.toFixed(2)} KB`;
     };
 
-    const filteredDocuments = documents.filter(doc => {
-        const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
-        const matchesType = filters.fileType === 'all' || doc.type === filters.fileType;
-        const matchesStatus = filters.status === 'all' || doc.status === filters.status;
-        const matchesFolder = filters.folder === 'all' || doc.folder === filters.folder;
-        const matchesActiveFolder = !activeFolder || doc.folder === activeFolder;
+    const filteredDocuments = documents
+        .filter(doc => doc && doc.id) // Remove undefined/null documents
+        .filter(doc => {
+            const matchesSearch = doc.name.toLowerCase().includes(searchQuery.toLowerCase());
+            const matchesType = filters.fileType === 'all' || doc.type === filters.fileType;
+            const matchesStatus = filters.status === 'all' || doc.status === filters.status;
+            const matchesFolder = filters.folder === 'all' || doc.folder === filters.folder;
+            const matchesActiveFolder = !activeFolder || doc.folder === activeFolder;
 
-        return matchesSearch && matchesType && matchesStatus && matchesFolder && matchesActiveFolder;
-    });
+            return matchesSearch && matchesType && matchesStatus && matchesFolder && matchesActiveFolder;
+        });
 
     const handleSelectAll = (checked: boolean) => {
         if (checked) {

@@ -1,9 +1,28 @@
 // API Client Configuration
-const API_BASE_URL = '/api';
-const AUTH_BASE_URL = '/api';
-const AI_BASE_URL = '/api';
+const isProduction = import.meta.env.PROD;
+const isDevelopment = import.meta.env.DEV;
 
-console.log('[API] Using proxy URLs for development');
+console.log('[API] Environment check:');
+console.log('[API] PROD:', isProduction);
+console.log('[API] DEV:', isDevelopment);
+console.log('[API] VITE_AUTH_BASE_URL:', import.meta.env.VITE_AUTH_BASE_URL);
+console.log('[API] VITE_API_BASE_URL:', import.meta.env.VITE_API_BASE_URL);
+
+const API_BASE_URL = isProduction
+  ? (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001')
+  : '/api';
+
+const AUTH_BASE_URL = isProduction
+  ? (import.meta.env.VITE_AUTH_BASE_URL || 'https://wa-auth-8pf4.onrender.com')
+  : '/api';
+
+const AI_BASE_URL = isProduction
+  ? (import.meta.env.VITE_AI_BASE_URL || 'http://localhost:8002')
+  : '/api';
+
+console.log('[API] Final URLs:');
+console.log('[API] AUTH_BASE_URL:', AUTH_BASE_URL);
+console.log('[API] API_BASE_URL:', API_BASE_URL);
 
 export interface User {
   id: string;
@@ -277,19 +296,26 @@ class APIClient {
   // ==================== AUTH APIs ====================
 
   async login(email: string, password: string): Promise<AuthResponse> {
-    const response = await fetch(`${AUTH_BASE_URL}/v1/auth/login`, {
+    const url = `${AUTH_BASE_URL}/v1/auth/login`;
+    console.log('[API] Login URL:', url);
+
+    const response = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
+    console.log('[API] Login response status:', response.status);
+
     if (!response.ok) {
       const error = await response.json().catch(() => null);
+      console.log('[API] Login error response:', error);
       const message = error?.detail || error?.error?.message || error?.message || 'Login failed';
       throw new Error(`Login failed (${response.status}): ${message}`);
     }
 
     const data = await response.json();
+    console.log('[API] Login success data:', data);
 
     // ✅ STORE TOKENS
     this.setToken(data.access_token);

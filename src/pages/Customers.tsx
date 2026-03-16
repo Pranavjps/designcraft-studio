@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Users, Plus, Filter, Download, Search, Grid, List,
     MoreVertical, Phone, Mail, MapPin, TrendingUp,
@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
+import api from '@/lib/api'; // Import api
 
 // B2C Customer Interface (aligned with crm.customers schema)
 interface Customer {
@@ -78,87 +79,7 @@ interface Customer {
     last_contacted_at?: string;
 }
 
-const mockCustomers: Customer[] = [
-    {
-        id: '1',
-        customer_name: 'Rahul Sharma',
-        phone: '+919876543210',
-        email: 'rahul.sharma@gmail.com',
-        whatsapp_contact_id: 'wa_001',
-        preferred_language: 'hi',
-        customer_source: 'WhatsApp',
-        customer_status: 'VIP',
-        city: 'Mumbai',
-        state: 'Maharashtra',
-        country: 'IN',
-        pincode: '400001',
-        total_orders: 12,
-        total_revenue: 45000,
-        average_order_value: 3750,
-        last_order_date: '2026-01-15',
-        days_since_last_order: 3,
-        message_frequency: 45,
-        buying_intent_score: 92,
-        churn_risk: 'Low',
-        customer_tone: 'Friendly',
-        tags: ['Premium', 'Frequent Buyer'],
-        customer_owner: 'Pranav A',
-        created_at: '2025-11-10T10:30:00',
-        last_contacted_at: '2026-01-17T14:20:00'
-    },
-    {
-        id: '2',
-        customer_name: 'Priya Patel',
-        phone: '+919988776655',
-        email: 'priya.p@yahoo.com',
-        preferred_language: 'en',
-        customer_source: 'Instagram',
-        customer_status: 'Active',
-        city: 'Ahmedabad',
-        state: 'Gujarat',
-        country: 'IN',
-        pincode: '380001',
-        total_orders: 5,
-        total_revenue: 12500,
-        average_order_value: 2500,
-        last_order_date: '2025-12-28',
-        days_since_last_order: 21,
-        message_frequency: 15,
-        buying_intent_score: 68,
-        churn_risk: 'Low',
-        customer_tone: 'Friendly',
-        tags: ['Social Media'],
-        customer_owner: 'Pranav A',
-        created_at: '2025-10-05T09:15:00',
-        last_contacted_at: '2026-01-10T11:30:00'
-    },
-    {
-        id: '3',
-        customer_name: 'Amit Kumar',
-        phone: '+918877665544',
-        email: 'amit.k@hotmail.com',
-        preferred_language: 'en',
-        customer_source: 'Website',
-        customer_status: 'Inactive',
-        city: 'Delhi',
-        state: 'Delhi',
-        country: 'IN',
-        pincode: '110001',
-        total_orders: 2,
-        total_revenue: 3500,
-        average_order_value: 1750,
-        last_order_date: '2025-09-15',
-        days_since_last_order: 125,
-        message_frequency: 8,
-        buying_intent_score: 25,
-        churn_risk: 'High',
-        customer_tone: 'Neutral',
-        tags: ['At Risk'],
-        customer_owner: 'Pranav A',
-        created_at: '2025-08-20T16:45:00',
-        last_contacted_at: '2025-12-01T10:00:00'
-    }
-];
+// const mockCustomers: Customer[] = []; // Removed mock data
 
 const customerSources = [
     'WhatsApp', 'Instagram', 'Facebook', 'Google Ads',
@@ -174,7 +95,22 @@ export default function Customers() {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-    const [customers] = useState<Customer[]>(mockCustomers);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+
+    useEffect(() => {
+        fetchCustomers();
+    }, []);
+
+    const fetchCustomers = async () => {
+        try {
+            const data = await api.getCustomers();
+            if (data && data.customers) {
+                setCustomers(data.customers as any);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     const [filters, setFilters] = useState({
         customerSource: 'all',

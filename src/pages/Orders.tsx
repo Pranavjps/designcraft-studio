@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Package, Filter, Download, Search, Grid, List,
     MoreVertical, MapPin, Truck, AlertCircle,
@@ -24,8 +24,9 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 
 import type { Order, PaymentMethod, PaymentStatus, OrderStatus, IssueType } from '@/types/crm.types';
-import { mockOrders, mockCustomers } from '@/data/mockData';
+// import { mockOrders, mockCustomers } from '@/data/mockData';
 import { formatCurrency, formatDate, getStatusColor } from '@/utils/crm.utils';
+import api from '@/lib/api'; // Import api
 
 const paymentMethods: PaymentMethod[] = ['UPI', 'COD', 'Card', 'Wallet', 'EMI'];
 const paymentStatuses: PaymentStatus[] = ['Pending', 'Paid', 'Failed', 'Refunded', 'Partially Refunded'];
@@ -37,7 +38,24 @@ export default function Orders() {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedOrders, setSelectedOrders] = useState<string[]>([]);
-    const [orders] = useState<Order[]>(mockOrders);
+    const [orders, setOrders] = useState<Order[]>([]);
+    const [customers, setCustomers] = useState<any[]>([]);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const [ordersData, customersData] = await Promise.all([
+                    api.getOrders(),
+                    api.getCustomers({ limit: 100 })
+                ]);
+                if (ordersData && ordersData.orders) setOrders(ordersData.orders as any);
+                if (customersData && customersData.customers) setCustomers(customersData.customers);
+            } catch (e) {
+                console.error(e);
+            }
+        };
+        load();
+    }, []);
 
     const [filters, setFilters] = useState({
         paymentStatus: 'all',
@@ -47,7 +65,7 @@ export default function Orders() {
     });
 
     const filteredOrders = orders.filter(order => {
-        const customer = mockCustomers.find(c => c.id === order.customer_id);
+        const customer = customers.find(c => c.id === order.customer_id);
         const matchesSearch =
             order.order_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
             (customer && customer.customer_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -287,7 +305,7 @@ export default function Orders() {
                             </thead>
                             <tbody>
                                 {filteredOrders.map((order) => {
-                                    const customer = mockCustomers.find(c => c.id === order.customer_id);
+                                    const customer = customers.find(c => c.id === order.customer_id);
                                     return (
                                         <tr key={order.id} className="border-b hover:bg-muted/50">
                                             <td className="p-4">
@@ -420,7 +438,7 @@ export default function Orders() {
             {viewMode === 'grid' && (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                     {filteredOrders.map((order) => {
-                        const customer = mockCustomers.find(c => c.id === order.customer_id);
+                        const customer = customers.find(c => c.id === order.customer_id);
                         return (
                             <div key={order.id} className="rounded-lg border bg-card p-6 hover:shadow-md transition-shadow">
                                 <div className="flex items-start justify-between mb-4">

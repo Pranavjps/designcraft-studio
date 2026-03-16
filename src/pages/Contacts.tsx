@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Users, Plus, Filter, Download, Search, Grid, List,
     MoreVertical, Phone, Mail, MapPin, TrendingUp,
@@ -35,7 +35,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 // Import B2C types and utilities
 import type { Customer } from '@/types/crm.types';
-import { mockCustomers } from '@/data/mockData';
+// import { mockCustomers } from '@/data/mockData';
+import api from '@/lib/api';
 import {
     formatCurrency,
     formatDate,
@@ -67,7 +68,13 @@ export default function Contacts() {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCustomers, setSelectedCustomers] = useState<string[]>([]);
-    const [customers] = useState<Customer[]>(mockCustomers);
+    const [customers, setCustomers] = useState<Customer[]>([]);
+
+    useEffect(() => {
+        api.getCustomers().then(data => {
+            if (data && data.customers) setCustomers(data.customers as any);
+        }).catch(err => console.error(err));
+    }, []);
     const [sortField, setSortField] = useState<keyof Customer>('created_at');
     const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
 

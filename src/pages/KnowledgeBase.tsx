@@ -12,17 +12,10 @@ import { toast } from "sonner";
 import api, { Document } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
-// Mock data
-const mockDocuments: Document[] = [
-  { id: "1", filename: "Product Catalog 2025.pdf", content_type: "application/pdf", status: "ready", uploaded_at: "2025-01-05T00:00:00Z" },
-  { id: "2", filename: "FAQ Document.docx", content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", status: "processing", uploaded_at: "2025-01-06T00:00:00Z" },
-  { id: "3", filename: "Shipping Policy.pdf", content_type: "application/pdf", status: "ready", uploaded_at: "2025-01-04T00:00:00Z" },
-  { id: "4", filename: "Return Guidelines.txt", content_type: "text/plain", status: "ready", uploaded_at: "2025-01-03T00:00:00Z" },
-  { id: "5", filename: "Customer Support Scripts.docx", content_type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", status: "failed", uploaded_at: "2025-01-02T00:00:00Z" },
-];
+// No mock data - all documents come from the backend
 
 export default function KnowledgeBase() {
-  const [documents, setDocuments] = useState<Document[]>(mockDocuments);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,12 +32,14 @@ export default function KnowledgeBase() {
   const loadDocuments = async () => {
     setIsLoading(true);
     try {
-      const data = await api.getDocuments(viewMode, statusFilter);
+      const data = await api.getDocuments();
       if (data.documents) {
         setDocuments(data.documents);
       }
     } catch (error) {
-      console.log("Using mock data for documents");
+      console.error("Failed to load documents:", error);
+      // Show empty state - no mock fallback
+      setDocuments([]);
     } finally {
       setIsLoading(false);
     }

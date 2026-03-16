@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Megaphone, Plus, Filter, Download, Search, Grid, List,
     MoreVertical, TrendingUp, Users, MessageSquare, X,
@@ -25,7 +25,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 // Import B2C types and utilities
 import type { Campaign, CampaignType, CampaignStatus } from '@/types/crm.types';
-import { mockCampaigns } from '@/data/mockData';
+// import { mockCampaigns } from '@/data/mockData';
+import api from '@/lib/api'; // Import api
 
 
 const campaignTypes: CampaignType[] = ['Lead Generation', 'Nurture', 'Re-engagement', 'Win-Back', 'Promotional'];
@@ -38,7 +39,14 @@ export default function Campaigns() {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([]);
-    const [campaigns] = useState<Campaign[]>(mockCampaigns);
+
+    const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+
+    useEffect(() => {
+        api.getCampaigns().then(data => {
+            if (data && data.campaigns) setCampaigns(data.campaigns as any);
+        }).catch(err => console.error(err));
+    }, []);
 
     const [filters, setFilters] = useState({
         campaignType: 'all',

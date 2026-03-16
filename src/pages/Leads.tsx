@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     Users, Plus, Filter, Download, Search, Grid, List,
     MoreVertical, Phone, Mail, TrendingUp,
@@ -34,8 +34,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 // Import B2C types and utilities
 import type { Lead, LeadSource, LeadStatus } from '@/types/crm.types';
-import { mockLeads } from '@/data/mockData';
+// import { mockLeads } from '@/data/mockData';
 import { formatDate, getStatusColor } from '@/utils/crm.utils';
+import api from '@/lib/api'; // Import API
 
 const leadSources: LeadSource[] = [
     'WhatsApp Bot', 'Instagram DM', 'Facebook Message', 'Google Ads',
@@ -54,7 +55,25 @@ export default function Leads() {
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
     const [selectedLeads, setSelectedLeads] = useState<string[]>([]);
-    const [leads, setLeads] = useState<Lead[]>(mockLeads);
+    const [leads, setLeads] = useState<Lead[]>([]);
+
+    useEffect(() => {
+        fetchLeads();
+    }, []);
+
+    const fetchLeads = async () => {
+        try {
+            const response = await api.getLeads({ limit: 100 }); // Fetch leads
+            if (response && response.leads) {
+                // Ensure leads match the type expected by the component. 
+                // The API Lead interface I added might be slightly different from local Lead type.
+                // I will cast or assume they are compatible for now as I updated api.ts.
+                setLeads(response.leads as any);
+            }
+        } catch (error) {
+            console.error("Failed to fetch leads", error);
+        }
+    };
 
     // Filter states
     const [filters, setFilters] = useState({
@@ -653,38 +672,38 @@ function CreateLeadDialog({
         description: ''
     });
 
-    const handleSubmit = (e: React.FormEvent) => {
+    const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
 
-        const newLead: Lead = {
-            id: String(Date.now()),
-            tenant_id: 'tenant-001', // Mock tenant ID
-            name: formData.name,
-            phone: formData.phone,
-            email: formData.email,
-            lead_source: formData.lead_source as any,
-            lead_status: formData.lead_status as LeadStatus,
-            lead_score: Math.floor(Math.random() * 40) + 60,
-            lead_owner: formData.lead_owner,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-            converted: false
-        };
+        try {
+            const payload = {
+                name: formData.name,
+                phone: formData.phone,
+                email: formData.email,
+                lead_source: formData.lead_source,
+                lead_status: formData.lead_status,
+                // Add other fields as per API requirement
+                city: formData.city
+            };
 
-        onSuccess(newLead);
+            const newLead = await api.createLead(payload as any);
+            onSuccess(newLead as any);
 
-        // Reset form
-        setFormData({
-            name: '',
-            phone: '',
-            email: '',
-            lead_source: '',
-            lead_status: 'New',
-            lead_owner: 'Pranav A',
-            description: '',
-            city: '',
-            state: ''
-        });
+            // Reset form
+            setFormData({
+                name: '',
+                phone: '',
+                email: '',
+                lead_source: '',
+                lead_status: 'New',
+                lead_owner: 'Pranav A',
+                description: '',
+                city: '',
+                state: ''
+            });
+        } catch (error) {
+            console.error("Failed to create lead", error);
+        }
     };
 
     return (

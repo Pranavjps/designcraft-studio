@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
     CheckSquare, Plus, Filter, Search, MoreVertical,
     Clock, Flag, RefreshCw, Download, Eye, Edit, Trash2,
@@ -33,8 +33,9 @@ import { Checkbox } from '@/components/ui/checkbox';
 
 // Import B2C types and utilities
 import type { Task, TaskStatus, TaskPriority, AgentType } from '@/types/crm.types';
-import { mockTasks, mockCustomers, mockDeals, mockOrders } from '@/data/mockData';
+// import { mockTasks, mockCustomers, mockDeals, mockOrders } from '@/data/mockData';
 import { formatDate, getStatusColor, isOverdue } from '@/utils/crm.utils';
+import api from '@/lib/api'; // Import api
 
 const taskStatuses: TaskStatus[] = ['Open', 'In Progress', 'Done', 'Cancelled'];
 const taskPriorities: TaskPriority[] = ['High', 'Normal', 'Low'];
@@ -48,8 +49,29 @@ export default function Tasks() {
     const [showCreateDialog, setShowCreateDialog] = useState(false);
     const [showFilterPanel, setShowFilterPanel] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [tasks] = useState<Task[]>(mockTasks);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [selectedTasks, setSelectedTasks] = useState<string[]>([]);
+    const [customers, setCustomers] = useState<any[]>([]);
+    const [deals, setDeals] = useState<any[]>([]);
+    const [orders, setOrders] = useState<any[]>([]);
+
+    useEffect(() => {
+        const load = async () => {
+            try {
+                const [t, c, d, o] = await Promise.all([
+                    api.getTasks(),
+                    api.getCustomers({ limit: 100 }),
+                    api.getDeals(),
+                    api.getOrders()
+                ]);
+                if (t && t.tasks) setTasks(t.tasks as any);
+                if (c && c.customers) setCustomers(c.customers);
+                if (d && d.deals) setDeals(d.deals as any);
+                if (o && o.orders) setOrders(o.orders as any);
+            } catch (e) { console.error(e); }
+        };
+        load();
+    }, []);
 
     const [filters, setFilters] = useState({
         status: 'all',
@@ -78,15 +100,15 @@ export default function Tasks() {
 
     const getRelatedEntity = (task: Task) => {
         if (task.customer_id) {
-            const customer = mockCustomers.find(c => c.id === task.customer_id);
+            const customer = customers.find(c => c.id === task.customer_id);
             return customer ? { type: 'Customer', name: customer.customer_name } : null;
         }
         if (task.deal_id) {
-            const deal = mockDeals.find(d => d.id === task.deal_id);
+            const deal = deals.find(d => d.id === task.deal_id);
             return deal ? { type: 'Deal', name: deal.deal_name } : null;
         }
         if (task.order_id) {
-            const order = mockOrders.find(o => o.id === task.order_id);
+            const order = orders.find(o => o.id === task.order_id);
             return order ? { type: 'Order', name: order.order_number } : null;
         }
         return null;
@@ -583,7 +605,7 @@ export default function Tasks() {
                                     <SelectValue placeholder="Select customer" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {mockCustomers.map(customer => (
+                                    {customers.map(customer => (
                                         <SelectItem key={customer.id} value={customer.id}>
                                             {customer.customer_name}
                                         </SelectItem>
@@ -600,7 +622,14 @@ export default function Tasks() {
                         <Button variant="outline" onClick={() => setShowCreateDialog(false)}>
                             Cancel
                         </Button>
-                        <Button className="bg-black text-white hover:bg-gray-800">
+                        <Button className="bg-black text-white hover:bg-gray-800" onClick={() => {
+                            // Simple create task logic
+                            // In real app, gather all fields.
+                            api.createTask({ subject: 'New Task', status: 'Open', priority: 'Normal' }).then(() => {
+                                setShowCreateDialog(false);
+                                // prompt reload or just reload
+                            });
+                        }}>
                             Create Task
                         </Button>
                     </DialogFooter>

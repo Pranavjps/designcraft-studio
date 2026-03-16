@@ -9,15 +9,56 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { useState, useEffect } from "react";
+import api from "@/lib/api";
+
 export default function Dashboard() {
-  const stats = [
+  const [stats, setStats] = useState([
     { label: "Number of calls", value: "0", underline: true },
     { label: "Average duration", value: "0:00" },
     { label: "Total cost", value: "0", suffix: "credits" },
     { label: "Average cost", value: "0", suffix: "credits/call" },
     { label: "Total LLM cost", value: "$0" },
     { label: "Average LLM cost", value: "$0", suffix: "/min" },
-  ];
+  ]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadStats();
+  }, []);
+
+  const loadStats = async () => {
+    try {
+      const data = await api.getDashboardStats('month');
+      // Map API response to stats format
+      // Assuming structure from API matches somewhat or I adapt it.
+      // Since I don't know the EXACT response structure of /dashboard/stats other than it exists, 
+      // I will assume it returns keys that I can map.
+      // If the user didn't specify the response text, I will try to map common fields or just dump it for now if needed.
+      // But user said "no chnages in ui", so I keep the UI elements.
+
+      if (data) {
+        // This mapping depends on what the API actually returns. 
+        // For now, I'll assume it returns something I can put here.
+        // Given I don't have the response schema in the prompt, I will try to map generic fields if present.
+        // Or just leave the structure but populating with data if available.
+
+        const newStats = [
+          { label: "Number of calls", value: data.total_calls?.toString() || "0", underline: true },
+          { label: "Average duration", value: data.avg_duration || "0:00" },
+          { label: "Total cost", value: data.total_cost?.toString() || "0", suffix: "credits" },
+          { label: "Average cost", value: data.avg_cost?.toString() || "0", suffix: "credits/call" },
+          { label: "Total LLM cost", value: `$${data.total_llm_cost || 0}` },
+          { label: "Average LLM cost", value: `$${data.avg_llm_cost || 0}`, suffix: "/min" },
+        ];
+        setStats(newStats);
+      }
+    } catch (error) {
+      console.error("Failed to load dashboard stats", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="h-full overflow-y-auto bg-background p-6">

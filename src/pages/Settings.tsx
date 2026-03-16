@@ -14,34 +14,18 @@ import { toast } from "sonner";
 import api, { UserProfile, NotificationPreferences, TeamMember } from "@/lib/api";
 
 
-// Mock data
-const mockProfile: UserProfile = {
-  id: "1",
-  email: "john@acme.com",
-  name: "Pranav",
-  avatar_url: "",
-  role: "admin",
-  tenant: { id: "1", name: "Acme Inc." },
-  created_at: "2025-01-01T00:00:00Z"
-};
 
-const mockNotifications: NotificationPreferences = {
-  email_enabled: true,
-  new_conversations: true,
-  unread_messages: false,
-  weekly_reports: true
-};
-
-const mockTeamMembers: TeamMember[] = [
-  { id: "1", email: "john@acme.com", name: "Pranav", role: "owner", created_at: "2025-01-01T00:00:00Z", last_active: "2 min ago" },
-  { id: "2", email: "jane@acme.com", name: "Jane Smith", role: "admin", created_at: "2025-01-05T00:00:00Z", last_active: "1 hour ago" },
-  { id: "3", email: "bob@acme.com", name: "Bob Johnson", role: "user", created_at: "2025-01-12T00:00:00Z", last_active: "1 day ago" },
-];
 
 export default function Settings() {
-  const [profile, setProfile] = useState<UserProfile>(mockProfile);
-  const [notifications, setNotifications] = useState<NotificationPreferences>(mockNotifications);
-  const [teamMembers, setTeamMembers] = useState<TeamMember[]>(mockTeamMembers);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [notifications, setNotifications] = useState<NotificationPreferences>({
+    email_enabled: true,
+    new_conversations: true,
+    unread_messages: false,
+    weekly_reports: true,
+  });
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
@@ -57,22 +41,37 @@ export default function Settings() {
   }, []);
 
   const loadSettings = async () => {
+    setIsLoadingSettings(true);
     try {
       const [profileData, notifData] = await Promise.all([
         api.getUserProfile(),
-        api.getNotificationPreferences()
+        api.getNotificationPreferences(),
       ]);
-      if (profileData) setProfile(profileData);
+      if (profileData) {
+        setProfile(profileData);
+        // Load team members after we have the profile
+        try {
+          const teamData = await api.getTeamMembers();
+          const members = teamData.users || teamData.members || [];
+          setTeamMembers(members as TeamMember[]);
+        } catch {
+          // Team members endpoint may not be available
+        }
+      }
       if (notifData) setNotifications(notifData);
     } catch (error) {
-      console.log("Using mock settings data");
+      console.error("Failed to load settings:", error);
+    } finally {
+      setIsLoadingSettings(false);
     }
   };
 
   const handleSaveProfile = async () => {
+    if (!profile) return;
     setIsSaving(true);
     try {
-      await api.updateUserProfile({ name: profile.name, email: profile.email });
+      const updated = await api.updateUserProfile({ name: profile.name });
+      if (updated) setProfile(updated);
       toast.success("Profile updated successfully!");
     } catch (error) {
       toast.error("Failed to update profile");
@@ -120,7 +119,7 @@ export default function Settings() {
     }
 
     try {
-      await api.inviteTeamMember(profile.tenant.id, inviteEmail, inviteRole);
+      await api.inviteTeamMember(inviteEmail, inviteRole);
       toast.success("Invitation sent!");
       setShowInvite(false);
       setInviteEmail("");
@@ -139,9 +138,30 @@ export default function Settings() {
     }
   };
 
+  const handleUpdateRole = async (memberId: string, role: string) => {
+    try {
+      await api.updateUserRole(memberId, role);
+      setTeamMembers(teamMembers.map(m => m.id === memberId ? { ...m, role } : m));
+      toast.success("Role updated");
+    } catch {
+      toast.error("Failed to update role");
+    }
+  };
+
   const getInitials = (name: string) => {
     return name.split(" ").map(n => n[0]).join("").toUpperCase().slice(0, 2);
   };
+
+  if (isLoadingSettings) {
+    return (
+      <div className="h-full bg-accent/20 p-6 overflow-y-auto flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <div className="h-10 w-10 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-muted-foreground">Loading settings…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full bg-accent/20 p-6 overflow-y-auto">
@@ -195,49 +215,57 @@ export default function Settings() {
                 <CardDescription>Update your personal details</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="flex items-center gap-6">
-                  <Avatar className="h-20 w-20">
-                    <AvatarImage src={profile.avatar_url} />
-                    <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                      {getInitials(profile.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <Button variant="outline">
-                    <Upload className="h-4 w-4 mr-2" />
-                    Change Photo
-                  </Button>
-                </div>
+                {profile ? (
+                  <>
+                    <div className="flex items-center gap-6">
+                      <Avatar className="h-20 w-20">
+                        <AvatarImage src={profile.avatar_url} />
+                        <AvatarFallback className="text-xl bg-primary text-primary-foreground">
+                          {getInitials(profile.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <Button variant="outline">
+                        <Upload className="h-4 w-4 mr-2" />
+                        Change Photo
+                      </Button>
+                    </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label>Full Name</Label>
-                    <Input
-                      value={profile.name}
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Email</Label>
-                    <Input
-                      type="email"
-                      value={profile.email}
-                      onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Company</Label>
-                    <Input value={profile.tenant.name} disabled />
-                  </div>
-                  <div>
-                    <Label>Role</Label>
-                    <Input value={profile.role} disabled />
-                  </div>
-                </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label>Full Name</Label>
+                        <Input
+                          value={profile.name}
+                          onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                        />
+                      </div>
+                      <div>
+                        <Label>Email</Label>
+                        <Input
+                          type="email"
+                          value={profile.email}
+                          disabled
+                        />
+                      </div>
+                      {profile.company && (
+                        <div>
+                          <Label>Company</Label>
+                          <Input value={profile.company} disabled />
+                        </div>
+                      )}
+                      <div>
+                        <Label>Role</Label>
+                        <Input value={profile.role} disabled />
+                      </div>
+                    </div>
 
-                <Button onClick={handleSaveProfile} disabled={isSaving}>
-                  {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                  Save Changes
-                </Button>
+                    <Button onClick={handleSaveProfile} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                      Save Changes
+                    </Button>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-sm">Profile data unavailable.</p>
+                )}
               </CardContent>
             </Card>
           </TabsContent>
@@ -354,37 +382,43 @@ export default function Settings() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {teamMembers.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                      <div className="flex items-center gap-4">
-                        <Avatar>
-                          <AvatarFallback className="bg-primary text-primary-foreground">
-                            {getInitials(member.name)}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div>
-                          <p className="font-medium text-foreground">{member.name}</p>
-                          <p className="text-sm text-muted-foreground">{member.email}</p>
+                  {teamMembers.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">No team members found.</p>
+                  ) : (
+                    teamMembers.map((member) => (
+                      <div key={member.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                        <div className="flex items-center gap-4">
+                          <Avatar>
+                            <AvatarFallback className="bg-primary text-primary-foreground">
+                              {getInitials(member.name)}
+                            </AvatarFallback>
+                          </Avatar>
+                          <div>
+                            <p className="font-medium text-foreground">{member.name}</p>
+                            <p className="text-sm text-muted-foreground">{member.email}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+                            {member.role}
+                          </Badge>
+                          {member.last_active && (
+                            <span className="text-sm text-muted-foreground">{member.last_active}</span>
+                          )}
+                          {profile && member.id !== profile.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-destructive"
+                              onClick={() => handleRemoveTeamMember(member.id)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-4">
-                        <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-                          {member.role}
-                        </Badge>
-                        <span className="text-sm text-muted-foreground">{member.last_active}</span>
-                        {member.id !== profile.id && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-destructive"
-                            onClick={() => handleRemoveTeamMember(member.id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </CardContent>
             </Card>

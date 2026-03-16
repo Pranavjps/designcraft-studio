@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { MessageCircle, ShoppingBag, Zap, Mail, CreditCard, Database, Check, Settings, Loader2, ExternalLink, RefreshCw } from "lucide-react";
+import { MessageCircle, ShoppingBag, Zap, Mail, CreditCard, Database, Check, Settings, Loader2, ExternalLink, RefreshCw, Calendar, Sheet } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -11,67 +11,12 @@ import { toast } from "sonner";
 import api, { Integration } from "@/lib/api";
 
 
-// Mock integrations
-const mockIntegrations: Integration[] = [
-  {
-    id: "1",
-    type: "whatsapp",
-    name: "WhatsApp Business",
-    description: "Connect your WhatsApp Business API for messaging",
-    status: "connected",
-    enabled: true,
-    config: { phone_number: "+919876543210", phone_number_id: "108123456789" }
-  },
-  {
-    id: null,
-    type: "shopify",
-    name: "Shopify",
-    description: "Sync products and orders from your Shopify store",
-    status: "available",
-    enabled: false,
-    config: null
-  },
-  {
-    id: null,
-    type: "zapier",
-    name: "Zapier",
-    description: "Automate workflows with 5,000+ apps",
-    status: "available",
-    enabled: false,
-    config: null
-  },
-  {
-    id: null,
-    type: "stripe",
-    name: "Stripe",
-    description: "Accept payments directly in conversations",
-    status: "available",
-    enabled: false,
-    config: null
-  },
-  {
-    id: null,
-    type: "mailchimp",
-    name: "Mailchimp",
-    description: "Sync contacts with your email marketing",
-    status: "available",
-    enabled: false,
-    config: null
-  },
-  {
-    id: null,
-    type: "hubspot",
-    name: "HubSpot CRM",
-    description: "Sync contacts and deals with HubSpot",
-    status: "available",
-    enabled: false,
-    config: null
-  }
-];
-
+// No mock data - all integrations come from the backend
 const integrationIcons: Record<string, any> = {
   whatsapp: MessageCircle,
   shopify: ShoppingBag,
+  google_calendar: Calendar,
+  google_sheets: Sheet,
   zapier: Zap,
   stripe: CreditCard,
   mailchimp: Mail,
@@ -79,13 +24,29 @@ const integrationIcons: Record<string, any> = {
 };
 
 export default function Integrations() {
-  const [integrations, setIntegrations] = useState<Integration[]>(mockIntegrations);
+  const [integrations, setIntegrations] = useState<Integration[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [connectDialog, setConnectDialog] = useState<Integration | null>(null);
   const [connectionConfig, setConnectionConfig] = useState<Record<string, string>>({});
   const [isConnecting, setIsConnecting] = useState(false);
 
   useEffect(() => {
+    // Check for OAuth callback status in URL
+    const urlParams = new URLSearchParams(window.location.search);
+    const status = urlParams.get('status');
+    const integration = urlParams.get('integration');
+    const error = urlParams.get('error');
+
+    if (status === 'success' && integration) {
+      toast.success(`${integration.replace('_', ' ')} connected successfully! 🎉`);
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    } else if (status === 'error') {
+      toast.error(error || 'Connection failed. Please try again.');
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname);
+    }
+
     loadIntegrations();
   }, []);
 
@@ -97,23 +58,20 @@ export default function Integrations() {
         setIntegrations(data.integrations);
       }
     } catch (error) {
-      console.log("Using mock integrations data");
+      console.error("Failed to load integrations", error);
+      // Show empty state - do not use mock data
+      setIntegrations([]);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleToggle = async (integration: Integration) => {
-    if (!integration.id) return;
-
-    try {
-      await api.toggleIntegration(integration.id, !integration.enabled);
-      setIntegrations(integrations.map(i => 
-        i.id === integration.id ? { ...i, enabled: !i.enabled } : i
-      ));
-      toast.success(`${integration.name} ${integration.enabled ? 'disabled' : 'enabled'}`);
-    } catch (error) {
-      toast.error("Failed to update integration");
+    // Toggle is done by connect/disconnect
+    if (integration.status === 'connected') {
+      await handleDisconnect(integration);
+    } else {
+      setConnectDialog(integration);
     }
   };
 
@@ -122,51 +80,45 @@ export default function Integrations() {
 
     setIsConnecting(true);
     try {
-      await api.connectIntegration(connectDialog.type, connectionConfig);
-      toast.success(`${connectDialog.name} connected successfully!`);
-      setConnectDialog(null);
-      setConnectionConfig({});
-      loadIntegrations();
-    } catch (error) {
-      toast.error("Failed to connect integration");
-    } finally {
+      // All integrations use OAuth flow
+      const metadata = connectDialog.type === 'shopify' ? connectionConfig : undefined;
+      const response = await api.initiateOAuthConnection(connectDialog.type, metadata);
+      // Redirect to OAuth provider
+      window.location.href = response.redirect_url;
+      // After OAuth, user will be redirected back with status params
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to initiate connection");
       setIsConnecting(false);
     }
   };
 
   const handleDisconnect = async (integration: Integration) => {
-    if (!integration.id) return;
+    if (!integration.type) return;
 
     try {
-      await api.disconnectIntegration(integration.id);
+      await api.disconnectIntegration(integration.type);
       toast.success(`${integration.name} disconnected`);
       loadIntegrations();
-    } catch (error) {
-      toast.error("Failed to disconnect integration");
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to disconnect integration");
     }
   };
 
   const handleTest = async (integration: Integration) => {
-    if (!integration.id) return;
-
-    try {
-      const result = await api.testIntegration(integration.id);
-      if (result.success) {
-        toast.success("Connection test successful!");
-      } else {
-        toast.error("Connection test failed");
-      }
-    } catch (error) {
-      toast.error("Connection test failed");
-    }
+    // Test connection by refreshing integration status
+    toast.info("Refreshing integration status…");
+    loadIntegrations();
   };
 
   const getConnectionFields = (type: string) => {
     switch (type) {
+      case "google_calendar":
+      case "google_sheets":
+        // OAuth integrations - no fields needed, will redirect to Google
+        return [];
       case "shopify":
         return [
-          { key: "shop_url", label: "Shop URL", placeholder: "https://yourstore.myshopify.com" },
-          { key: "access_token", label: "Access Token", placeholder: "shpat_xxxxxxxxxxxxx", type: "password" }
+          { key: "shop_url", label: "Shop URL", placeholder: "your-store.myshopify.com" }
         ];
       case "stripe":
         return [
@@ -252,9 +204,9 @@ export default function Integrations() {
                               <Settings className="h-3 w-3 mr-1" />
                               Configure
                             </Button>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="text-destructive"
                               onClick={() => handleDisconnect(integration)}
                             >
@@ -289,7 +241,7 @@ export default function Integrations() {
                       </CardHeader>
                       <CardContent>
                         <p className="text-sm text-muted-foreground mb-4">{integration.description}</p>
-                        <Button 
+                        <Button
                           className="w-full"
                           onClick={() => setConnectDialog(integration)}
                         >
@@ -312,20 +264,34 @@ export default function Integrations() {
               <DialogTitle>Connect {connectDialog?.name}</DialogTitle>
             </DialogHeader>
             <div className="space-y-4">
-              {connectDialog && getConnectionFields(connectDialog.type).map((field) => (
-                <div key={field.key}>
-                  <Label>{field.label}</Label>
-                  <Input
-                    type={field.type || "text"}
-                    placeholder={field.placeholder}
-                    value={connectionConfig[field.key] || ""}
-                    onChange={(e) => setConnectionConfig({
-                      ...connectionConfig,
-                      [field.key]: e.target.value
-                    })}
-                  />
-                </div>
-              ))}
+              {connectDialog && (() => {
+                const fields = getConnectionFields(connectDialog.type);
+                const isOAuth = ['google_calendar', 'google_sheets', 'shopify'].includes(connectDialog.type);
+
+                return (
+                  <>
+                    {isOAuth && fields.length === 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        You'll be redirected to {connectDialog.type.includes('google') ? 'Google' : 'Shopify'} to authorize access.
+                      </p>
+                    )}
+                    {fields.map((field) => (
+                      <div key={field.key}>
+                        <Label>{field.label}</Label>
+                        <Input
+                          type={'type' in field ? field.type : "text"}
+                          placeholder={field.placeholder}
+                          value={connectionConfig[field.key] || ""}
+                          onChange={(e) => setConnectionConfig({
+                            ...connectionConfig,
+                            [field.key]: e.target.value
+                          })}
+                        />
+                      </div>
+                    ))}
+                  </>
+                );
+              })()}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setConnectDialog(null)}>

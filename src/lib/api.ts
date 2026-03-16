@@ -1141,7 +1141,7 @@ class APIClient {
   }
 
   async getNotificationPreferences(): Promise<NotificationPreferences> {
-    const profile = await this.getUserProfile();
+    const profile = await this.getUserProfile() as any;
     const notif = profile.notifications || {};
     return {
       email_enabled: notif.email_enabled ?? true,
@@ -1152,7 +1152,7 @@ class APIClient {
   }
 
   async updateNotificationPreferences(data: Partial<NotificationPreferences>): Promise<NotificationPreferences> {
-    await this.updateUserProfile({ notifications: data });
+    await this.updateUserProfile({ notifications: data } as any);
     return data as NotificationPreferences;
   }
 

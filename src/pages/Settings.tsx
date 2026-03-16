@@ -14,11 +14,11 @@ import { toast } from "sonner";
 import api, { UserProfile, NotificationPreferences, TeamMember } from "@/lib/api";
 
 
-// Mock data
+// Mock data used as initial state while API loads
 const mockProfile: UserProfile = {
   id: "1",
   email: "john@acme.com",
-  name: "Pranav",
+  full_name: "Pranav",
   avatar_url: "",
   role: "admin",
   tenant: { id: "1", name: "Acme Inc." },
@@ -42,6 +42,7 @@ export default function Settings() {
   const [profile, setProfile] = useState<UserProfile>(mockProfile);
   const [notifications, setNotifications] = useState<NotificationPreferences>(mockNotifications);
   const [teamMembers, setTeamMembers] = useState<TeamMember[]>(mockTeamMembers);
+  const [isLoadingSettings, setIsLoadingSettings] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [showInvite, setShowInvite] = useState(false);
@@ -86,7 +87,7 @@ export default function Settings() {
     if (!profile) return;
     setIsSaving(true);
     try {
-      await api.updateUserProfile({ name: profile.name, email: profile.email });
+      await api.updateUserProfile({ full_name: profile.full_name });
       toast.success("Profile updated successfully!");
     } catch (error) {
       toast.error("Failed to update profile");
@@ -134,7 +135,7 @@ export default function Settings() {
     }
 
     try {
-      await api.inviteTeamMember(profile.tenant.id, inviteEmail, inviteRole);
+      await api.inviteTeamMember(inviteEmail, inviteRole);
       toast.success("Invitation sent!");
       setShowInvite(false);
       setInviteEmail("");
@@ -228,13 +229,13 @@ export default function Settings() {
               <CardHeader>
                 <CardTitle>Profile Information</CardTitle>
                 <CardDescription>Update your personal details</CardDescription>
-              </CardHeader>full_
+              </CardHeader>
               <CardContent className="space-y-6">
                 <div className="flex items-center gap-6">
                   <Avatar className="h-20 w-20">
                     <AvatarImage src={profile.avatar_url} />
                     <AvatarFallback className="text-xl bg-primary text-primary-foreground">
-                      {getInitials(profile.name)}
+                      {getInitials(profile.full_name)}
                     </AvatarFallback>
                   </Avatar>
                   <Button variant="outline">
@@ -247,8 +248,8 @@ export default function Settings() {
                   <div>
                     <Label>Full Name</Label>
                     <Input
-                      value={profile.name}
-                      onChange={(e) => setProfile({ ...profile, name: e.target.value })}
+                      value={profile.full_name}
+                      onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
                     />
                   </div>
                   <div>
@@ -269,14 +270,10 @@ export default function Settings() {
                   </div>
                 </div>
 
-                    <Button onClick={handleSaveProfile} disabled={isSaving}>
-                      {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-                      Save Changes
-                    </Button>
-                  </>
-                ) : (
-                  <p className="text-muted-foreground text-sm">Profile data unavailable.</p>
-                )}
+                <Button onClick={handleSaveProfile} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
+                  Save Changes
+                </Button>
               </CardContent>
             </Card>
           </TabsContent>

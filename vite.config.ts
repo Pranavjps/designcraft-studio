@@ -12,5 +12,14 @@ export default defineConfig({
     },
     server: {
         port: 8080,
+        proxy: {
+            // Proxy API requests to avoid CORS issues in development / GitHub.dev previews
+            '/api': {
+                target: 'https://wa-auth-8pf4.onrender.com',
+                changeOrigin: true,
+                secure: true,
+                rewrite: (path) => path.replace(/^\/api/, ''),
+            },
+        },
     },
 })

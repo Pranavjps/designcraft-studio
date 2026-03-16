@@ -1,4 +1,4 @@
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import {
     LayoutDashboard,
     MessageSquare,
@@ -47,6 +47,7 @@ const navigation: NavItem[] = [
 
 export function Layout() {
     const location = useLocation();
+    const navigate = useNavigate();
     const { user, logout } = useAuth();
     const [crmExpanded, setCrmExpanded] = useState(true);
 
@@ -206,7 +207,10 @@ export function Layout() {
                             </p>
                         </div>
                         <button
-                            onClick={logout}
+                            onClick={() => {
+                                logout();
+                                navigate('/login');
+                            }}
                             className="text-xs text-muted-foreground hover:text-foreground"
                         >
                             Logout

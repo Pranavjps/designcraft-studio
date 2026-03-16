@@ -1,13 +1,19 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
+import { BrowserRouter as Router } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './hooks/useAuth'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
     <React.StrictMode>
-        <AuthProvider>
-            <App />
-        </AuthProvider>
+        <Router>
+            <AuthProvider>
+                <ErrorBoundary>
+                    <App />
+                </ErrorBoundary>
+            </AuthProvider>
+        </Router>
     </React.StrictMode>,
 )

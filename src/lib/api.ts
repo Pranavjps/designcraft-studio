@@ -1,7 +1,9 @@
 // API Client Configuration
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8001';
-const AUTH_BASE_URL = import.meta.env.VITE_AUTH_BASE_URL || 'https://wa-auth-8pf4.onrender.com';
-const AI_BASE_URL = import.meta.env.VITE_AI_BASE_URL || 'http://localhost:8002';
+const API_BASE_URL = '/api';
+const AUTH_BASE_URL = '/api';
+const AI_BASE_URL = '/api';
+
+console.log('[API] Using proxy URLs for development');
 
 export interface User {
   id: string;
@@ -194,6 +196,11 @@ class APIClient {
 
   constructor() {
     this.token = localStorage.getItem('access_token');
+
+    if (import.meta.env.DEV) {
+      console.info('[API] AUTH_BASE_URL:', AUTH_BASE_URL);
+      console.info('[API] API_BASE_URL:', API_BASE_URL);
+    }
   }
 
   setToken(token: string) {
@@ -232,24 +239,9 @@ class APIClient {
     });
 
     if (response.status === 401 && this.token) {
-      // Token might be expired, try to refresh
-      try {
-        await this.refreshToken();
-        // Retry the request with new token
-        (headers as Record<string, string>)['Authorization'] = `Bearer ${this.token}`;
-        const retryResponse = await fetch(url, {
-          ...options,
-          headers,
-          credentials: 'omit',
-        });
-        if (retryResponse.ok) {
-          return retryResponse.json();
-        }
-      } catch (refreshError) {
-        // Refresh failed, clear tokens
-        this.clearToken();
-        throw new Error('Authentication expired');
-      }
+      // Token is expired, clear it and throw error
+      this.clearToken();
+      throw new Error('Authentication expired');
     }
 
     if (!response.ok) {
@@ -293,7 +285,8 @@ class APIClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => null);
-      throw new Error(error?.error?.message || 'Login failed');
+      const message = error?.detail || error?.error?.message || error?.message || 'Login failed';
+      throw new Error(`Login failed (${response.status}): ${message}`);
     }
 
     const data = await response.json();
@@ -338,25 +331,7 @@ class APIClient {
   }
 
   async refreshToken(): Promise<AuthResponse> {
-    const refreshToken = localStorage.getItem('refresh_token');
-    if (!refreshToken) {
-      throw new Error('No refresh token available');
-    }
-
-    const response = await fetch(`${AUTH_BASE_URL}/v1/auth/refresh`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refresh_token: refreshToken }),
-    });
-
-    if (!response.ok) {
-      throw new Error('Token refresh failed');
-    }
-
-    const data = await response.json();
-    this.setToken(data.access_token);
-    localStorage.setItem('refresh_token', data.refresh_token);
-    return data;
+    throw new Error('Token refresh not supported by this API');
   }
 
   async forgotPassword(email: string): Promise<{ message: string }> {

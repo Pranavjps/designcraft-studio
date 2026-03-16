@@ -101,7 +101,8 @@ export default function KnowledgeBase() {
       processing: { icon: Clock, color: "text-yellow-600 bg-yellow-50", label: "Processing" },
       failed: { icon: AlertCircle, color: "text-red-600 bg-red-50", label: "Failed" }
     };
-    const { icon: Icon, color, label } = config[status];
+    const statusConfig = config[status] || { icon: AlertCircle, color: "text-gray-600 bg-gray-50", label: status || "Unknown" };
+    const { icon: Icon, color, label } = statusConfig || { icon: AlertCircle, color: "text-gray-600 bg-gray-50", label: "Unknown" };
     return (
       <Badge variant="outline" className={cn("gap-1", color)}>
         <Icon className="h-3 w-3" />
@@ -118,11 +119,13 @@ export default function KnowledgeBase() {
     });
   };
 
-  const filteredDocuments = documents.filter(doc => {
-    const matchesSearch = doc.filename.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === "all" || doc.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  const filteredDocuments = documents
+    .filter(doc => doc && doc.id) // Remove undefined/null documents
+    .filter(doc => {
+      const matchesSearch = doc.filename.toLowerCase().includes(searchQuery.toLowerCase());
+      const matchesStatus = statusFilter === "all" || doc.status === statusFilter;
+      return matchesSearch && matchesStatus;
+    });
 
   const processingCount = documents.filter(d => d.status === "processing").length;
 
